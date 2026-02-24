@@ -1,61 +1,50 @@
-name: Simple Spring Boot → GCP Compute Engine
+name: Simple Spring Boot to GCP Compute Engine
 
 on:
   push:
     branches:
       - main
 
-env:
-  VM_USER: ipragatisingh30
-
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
 
     steps:
-      - name: ✅ Checkout Code
+      - name: Checkout Code
         uses: actions/checkout@v3
 
-      - name: ✅ Set up Java 21
+      - name: Set up Java 21
         uses: actions/setup-java@v3
         with:
           distribution: 'temurin'
           java-version: '21'
 
-      - name: ✅ Build JAR with Maven
+      - name: Build JAR
         run: mvn clean package -DskipTests
 
-      - name: ✅ Setup SSH Key
+      - name: Setup SSH Key
         run: |
           mkdir -p ~/.ssh
           echo "${{ secrets.VM_SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
           ssh-keyscan -H ${{ secrets.VM_EXTERNAL_IP }} >> ~/.ssh/known_hosts
 
-      - name: ✅ Copy JAR to VM
+      - name: Copy JAR to VM
         run: |
-          scp -i ~/.ssh/id_rsa \
-            target/simple-spring-boot-1.0.0.jar \
-            ${{ env.VM_USER }}@${{ secrets.VM_EXTERNAL_IP }}:/home/${{ env.VM_USER }}/app.jar
+          scp -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no target/simple-spring-boot-1.0.0.jar ipragatisingh30@${{ secrets.VM_EXTERNAL_IP }}:/home/ipragatisingh30/app.jar
 
-      - name: ✅ Deploy and Run App on VM
+      - name: Run App on VM
         run: |
-          ssh -i ~/.ssh/id_rsa ${{ env.VM_USER }}@${{ secrets.VM_EXTERNAL_IP }} << 'EOF'
+          ssh -i ~/.ssh/id_rsa -o StrictHostKeyChecking=no ipragatisingh30@${{ secrets.VM_EXTERNAL_IP }} '
             export SDKMAN_DIR="/home/ipragatisingh30/.sdkman"
             source "/home/ipragatisingh30/.sdkman/bin/sdkman-init.sh"
-            pkill -f 'java -jar' || true
+            pkill -f "java -jar" || true
             sleep 2
-            nohup java -jar /home/ipragatisingh30/app.jar \
-              --server.port=8080 \
-              > /home/ipragatisingh30/app.log 2>&1 &
+            nohup java -jar /home/ipragatisingh30/app.jar --server.port=8080 > /home/ipragatisingh30/app.log 2>&1 &
             sleep 3
-            echo "✅ App started successfully!"
-          EOF
+            echo "App started!"
+          '
 
-      - name: ✅ App is Live!
+      - name: Print URL
         run: |
-          echo "========================================"
-          echo "🚀 Your App is LIVE at:"
-          echo "http://${{ secrets.VM_EXTERNAL_IP }}:8080/api/hello"
-          echo "http://${{ secrets.VM_EXTERNAL_IP }}:8080/api/health"
-          echo "========================================"
+          echo "App is LIVE at http://${{ secrets.VM_EXTERNAL_IP }}:8080/api/hello"
